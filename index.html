@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SmartPresent | New Presentation</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-page="upload">
+    <div class="hero-center">
+      <div class="upload-card glass-panel">
+        <h1 style="margin-bottom: 0.5rem">
+          SmartPresent <span style="color: var(--primary)">AI</span>
+        </h1>
+        <p style="color: var(--text-muted); margin-bottom: 2rem">
+          Upload your PDF to begin voice-controlled magic.
+        </p>
+
+        <form id="uploadForm">
+          <div class="input-group">
+            <input
+              type="text"
+              id="ownerName"
+              required
+              placeholder="Presenter Name"
+              style="text-align: center"
+            />
+          </div>
+
+          <div class="drop-zone">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h3>Drop PDF Here</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted)">
+              or click to browse
+            </p>
+            <div
+              id="fileName"
+              style="color: var(--success); margin-top: 10px; font-weight: 600"
+            ></div>
+            <input
+              type="file"
+              id="fileUpload"
+              accept="application/pdf"
+              hidden
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            style="width: 100%; justify-content: center"
+          >
+            Next Step <i class="fas fa-arrow-right"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

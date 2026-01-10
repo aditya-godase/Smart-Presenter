@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Presenter Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+</head>
+<body data-page="presenter">
+    
+    <div class="dashboard-grid">
+        
+        <div class="glass-panel dash-sidebar" style="padding: 1.5rem;">
+            
+            <div>
+                <h3 style="margin-bottom:0.5rem">Controls</h3>
+                <button id="btnOpenAudience" class="btn btn-secondary" style="width:100%">
+                    <i class="fas fa-external-link-alt"></i> Open Audience View
+                </button>
+            </div>
+
+            <div id="micWidget" class="mic-status-widget">
+                <div class="mic-icon-wrapper">
+                    <div class="mic-ripple"></div>
+                    <div class="mic-dot"></div>
+                </div>
+                <span id="micStatusText" style="font-size: 0.9rem; font-weight: 600; color: var(--text-muted);">Mic Standby</span>
+            </div>
+            
+            <div class="speech-log-panel">
+                <h4 style="margin-bottom:0.5rem; color:var(--text-muted)">Voice Stream</h4>
+                <div id="logContent" class="log-content">
+                    </div>
+            </div>
+
+            <div style="background:rgba(255,255,255,0.05); padding:1rem; border-radius:8px; margin-top: auto;">
+                <span id="nextInfo" style="font-size:0.9rem; color:var(--text-muted)">Ready...</span>
+            </div>
+        </div>
+
+        <div class="glass-panel dash-stage">
+            <div class="timer-strip">
+                <div id="timerProgress" class="timer-progress"></div>
+            </div>
+
+            <div class="stage-preview">
+                <img id="slideImg" src="" alt="Current Slide">
+            </div>
+
+            <div class="control-bar">
+                <button id="btnPrev" class="control-icon-btn"><i class="fas fa-chevron-left"></i></button>
+                <button id="btnStart" class="control-icon-btn active"><i class="fas fa-play"></i></button>
+                <button id="btnPause" class="control-icon-btn warning"><i class="fas fa-pause"></i></button>
+                <button id="btnNext" class="control-icon-btn"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
