@@ -141,6 +141,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const micText = document.getElementById('micStatusText');
         const btnStart = document.getElementById('btnStart');
 
+        const silentAudio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+        silentAudio.loop = true;
+
         async function renderSlide(index) {
             if(index >= config.length) index = 0; 
             if(index < 0) index = config.length - 1;
@@ -231,6 +234,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(isRunning && !isPaused) return;
             isRunning = true; isPaused = false;
             this.classList.add('active'); document.getElementById('btnPause').classList.remove('active');
+            
+            silentAudio.play().catch(e => console.log("Audio play blocked", e));
+            
             renderSlide(currentIndex);
             if(!recognition) initSpeech();
             try { recognition.start(); } catch(e) {}
@@ -241,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btnOpenAudience').onclick = () => window.open('presentation.html', 'Audience', 'width=1280,height=720');
 
         renderSlide(0);
-        setTimeout(() => btnStart.click(), 500);
+        setTimeout(() => btnStart.click(), 500); 
     }
 
     if (page === 'audience') {
@@ -258,27 +264,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         const micIcon = document.getElementById('audienceMicStatus');
 
         let lastIndex = -99;
+        let isRendering = false;
 
         async function renderLocalSlide(index) {
-            if(index === lastIndex) return;
+            if(index === lastIndex || isRendering) return;
+            isRendering = true;
             lastIndex = index;
 
-            const p = await pdf.getPage(config[index].page);
-            const vp = p.getViewport({ scale: 2.0 });
-            const cvs = document.createElement('canvas');
-            cvs.width = vp.width; cvs.height = vp.height;
-            await p.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-            
-            img.style.opacity = 0;
-            setTimeout(() => {
+            try {
+                const p = await pdf.getPage(config[index].page);
+                const vp = p.getViewport({ scale: 2.0 });
+                const cvs = document.createElement('canvas');
+                cvs.width = vp.width; cvs.height = vp.height;
+                await p.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
+                
+                img.style.opacity = 0;
                 img.src = cvs.toDataURL();
-                img.style.opacity = 1;
-            }, 100);
+                img.onload = () => { img.style.opacity = 1; isRendering = false; };
+            } catch(e) {
+                isRendering = false;
+            }
         }
 
         const initIndex = await getFile('currentIndex');
-        if (initIndex !== undefined) renderLocalSlide(initIndex);
-        else renderLocalSlide(0);
+        renderLocalSlide(initIndex || 0);
 
         channel.onmessage = (e) => {
             if(e.data.type === 'CHANGE_SLIDE') {
@@ -287,10 +296,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         setInterval(async () => {
-            const dbIndex = await getFile('currentIndex');
-            if (dbIndex !== undefined && dbIndex !== lastIndex) {
-                console.log("Resyncing from DB...");
-                renderLocalSlide(dbIndex);
+            if(document.visibilityState === 'visible') {
+                const dbIndex = await getFile('currentIndex');
+                if (dbIndex !== undefined && dbIndex !== lastIndex) {
+                    console.log("Resyncing...");
+                    renderLocalSlide(dbIndex);
+                }
             }
         }, 1000);
 
@@ -305,7 +316,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             recognition.onresult = (e) => {
                 const clean = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
-                console.log("Audience heard:", clean);
                 if (clean.includes('next slide') || clean === 'go next') channel.postMessage({ type: 'REMOTE_CMD', action: 'next' });
                 else if (clean.includes('previous slide') || clean === 'go back') channel.postMessage({ type: 'REMOTE_CMD', action: 'prev' });
                 else if (clean === 'pause') channel.postMessage({ type: 'REMOTE_CMD', action: 'pause' });
