@@ -1,7 +1,3 @@
-/**
- * SmartPresent Core V5.1 (Fixed Auto-Loop Timer)
- */
-
 const DB_NAME = 'SmartPresentDB';
 const STORE_NAME = 'PresentationStore';
 const CHANNEL_NAME = 'SmartPresent_Sync';
@@ -144,10 +140,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const micText = document.getElementById('micStatusText');
         const btnStart = document.getElementById('btnStart');
 
+        async function syncState() {
+            await saveFile('currentIndex', currentIndex);
+            channel.postMessage({ type: 'CHANGE_SLIDE', index: currentIndex });
+        }
+
         async function renderSlide(index) {
             if(index >= config.length) index = 0; 
             if(index < 0) index = config.length - 1;
-            
             currentIndex = index;
 
             const p = await pdf.getPage(config[index].page);
@@ -156,10 +156,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             cvs.width = vp.width; cvs.height = vp.height;
             await p.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
             
-            const dataUrl = cvs.toDataURL();
-            img.src = dataUrl;
+            img.src = cvs.toDataURL();
             
-            channel.postMessage({ type: 'CHANGE_SLIDE', img: dataUrl, index: currentIndex });
+            syncState();
             
             if(currentIndex + 1 < config.length) nextInfo.innerHTML = `<strong>Next:</strong> ${config[currentIndex+1].command}`;
             else nextInfo.innerHTML = `<strong>Next:</strong> Loop to Start`;
@@ -175,13 +174,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             timerInt = setInterval(() => {
                 if(!isPaused && isRunning) {
                     timeLeft--;
-                    const percentage = ((total - timeLeft) / total) * 100;
-                    timerBar.style.width = `${percentage}%`;
+                    timerBar.style.width = `${((total - timeLeft) / total) * 100}%`;
                     
                     if (timeLeft <= 0) {
                         clearInterval(timerInt);
                         log(">> Timer Finished: Auto-Advancing", 'neutral');
-                        renderSlide(currentIndex + 1);
+                        renderSlide(currentIndex + 1); 
                     }
                 }
             }, 1000);
@@ -238,7 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(isRunning && !isPaused) return;
             isRunning = true; isPaused = false;
             this.classList.add('active'); document.getElementById('btnPause').classList.remove('active');
-            renderSlide(currentIndex);
+            renderSlide(currentIndex); 
             if(!recognition) initSpeech();
             try { recognition.start(); } catch(e) {}
         };
@@ -248,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btnOpenAudience').onclick = () => window.open('presentation.html', 'Audience', 'width=1280,height=720');
 
         renderSlide(0);
-        setTimeout(() => btnStart.click(), 500);
+        setTimeout(() => btnStart.click(), 500); 
     }
 
     if (page === 'audience') {
@@ -264,15 +262,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         const overlay = document.getElementById('fsOverlay');
         const micIcon = document.getElementById('audienceMicStatus');
 
+        let lastIndex = -1;
+
         async function renderLocalSlide(index) {
+            if(index === lastIndex) return;
+            lastIndex = index;
+
             const p = await pdf.getPage(config[index].page);
             const vp = p.getViewport({ scale: 2.0 });
             const cvs = document.createElement('canvas');
             cvs.width = vp.width; cvs.height = vp.height;
             await p.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-            img.src = cvs.toDataURL();
-            img.style.opacity = 1;
+            
+            img.style.opacity = 0;
+            setTimeout(() => {
+                img.src = cvs.toDataURL();
+                img.style.opacity = 1;
+            }, 100);
         }
+
+        channel.onmessage = (e) => {
+            if(e.data.type === 'CHANGE_SLIDE') {
+                renderLocalSlide(e.data.index);
+            }
+        };
+
+        setInterval(async () => {
+            const dbIndex = await getFile('currentIndex');
+            if (dbIndex !== undefined && dbIndex !== lastIndex) {
+                console.log("Sync recovered via DB check");
+                renderLocalSlide(dbIndex);
+            }
+        }, 2000);
 
         function initRemoteVoice() {
             const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -286,7 +307,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             recognition.onresult = (e) => {
                 const clean = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
                 console.log("Audience heard:", clean);
-
                 if (clean.includes('next slide') || clean === 'go next') channel.postMessage({ type: 'REMOTE_CMD', action: 'next' });
                 else if (clean.includes('previous slide') || clean === 'go back') channel.postMessage({ type: 'REMOTE_CMD', action: 'prev' });
                 else if (clean === 'pause') channel.postMessage({ type: 'REMOTE_CMD', action: 'pause' });
@@ -302,12 +322,5 @@ document.addEventListener('DOMContentLoaded', async () => {
             overlay.style.display = 'none';
             initRemoteVoice();
         });
-
-        channel.onmessage = (e) => {
-            if(e.data.type === 'CHANGE_SLIDE') {
-                img.style.opacity = 0;
-                setTimeout(() => { img.src = e.data.img; img.style.opacity = 1; }, 200);
-            }
-        };
     }
 });
