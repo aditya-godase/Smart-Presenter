@@ -4,16 +4,22 @@
     <meta charset="UTF-8">
     <title>Live Presentation</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body data-page="audience">
     
     <div class="audience-wrapper">
-        <img id="audienceImg" class="audience-img" src="" style="transition: opacity 0.3s;">
+        <img id="audienceImg" class="audience-img" src="" style="opacity: 0; transition: opacity 0.3s;">
         
+        <div id="audienceMicStatus" style="position:absolute; bottom:20px; right:20px; color:rgba(255,255,255,0.3); font-size:2rem;">
+            <i class="fas fa-microphone-slash"></i>
+        </div>
+
         <div id="fsOverlay" class="fs-overlay">
             <div style="text-align:center; color:white;">
                 <i class="fas fa-expand" style="font-size:3rem; margin-bottom:1rem;"></i>
                 <h2>Click to Enter Full Screen</h2>
+                <p style="opacity:0.7">Microphone will activate automatically</p>
             </div>
         </div>
     </div>
