@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const buffer = await file.arrayBuffer();
             await saveFile('presentationBlob', buffer);
             await saveFile('meta', { owner, fileName: file.name });
+            await saveFile('currentIndex', 0);
             window.location.href = 'configure.html';
         });
     }
@@ -140,26 +141,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         const micText = document.getElementById('micStatusText');
         const btnStart = document.getElementById('btnStart');
 
-        async function syncState() {
-            await saveFile('currentIndex', currentIndex);
-            channel.postMessage({ type: 'CHANGE_SLIDE', index: currentIndex });
-        }
-
         async function renderSlide(index) {
             if(index >= config.length) index = 0; 
             if(index < 0) index = config.length - 1;
             currentIndex = index;
+
+            await saveFile('currentIndex', currentIndex);
 
             const p = await pdf.getPage(config[index].page);
             const vp = p.getViewport({ scale: 2.0 });
             const cvs = document.createElement('canvas');
             cvs.width = vp.width; cvs.height = vp.height;
             await p.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-            
             img.src = cvs.toDataURL();
             
-            syncState();
-            
+            channel.postMessage({ type: 'CHANGE_SLIDE', index: currentIndex });
+
             if(currentIndex + 1 < config.length) nextInfo.innerHTML = `<strong>Next:</strong> ${config[currentIndex+1].command}`;
             else nextInfo.innerHTML = `<strong>Next:</strong> Loop to Start`;
 
@@ -175,10 +172,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if(!isPaused && isRunning) {
                     timeLeft--;
                     timerBar.style.width = `${((total - timeLeft) / total) * 100}%`;
-                    
                     if (timeLeft <= 0) {
                         clearInterval(timerInt);
-                        log(">> Timer Finished: Auto-Advancing", 'neutral');
                         renderSlide(currentIndex + 1); 
                     }
                 }
@@ -236,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if(isRunning && !isPaused) return;
             isRunning = true; isPaused = false;
             this.classList.add('active'); document.getElementById('btnPause').classList.remove('active');
-            renderSlide(currentIndex); 
+            renderSlide(currentIndex);
             if(!recognition) initSpeech();
             try { recognition.start(); } catch(e) {}
         };
@@ -246,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('btnOpenAudience').onclick = () => window.open('presentation.html', 'Audience', 'width=1280,height=720');
 
         renderSlide(0);
-        setTimeout(() => btnStart.click(), 500); 
+        setTimeout(() => btnStart.click(), 500);
     }
 
     if (page === 'audience') {
@@ -262,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const overlay = document.getElementById('fsOverlay');
         const micIcon = document.getElementById('audienceMicStatus');
 
-        let lastIndex = -1;
+        let lastIndex = -99;
 
         async function renderLocalSlide(index) {
             if(index === lastIndex) return;
@@ -281,6 +276,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }, 100);
         }
 
+        const initIndex = await getFile('currentIndex');
+        if (initIndex !== undefined) renderLocalSlide(initIndex);
+        else renderLocalSlide(0);
+
         channel.onmessage = (e) => {
             if(e.data.type === 'CHANGE_SLIDE') {
                 renderLocalSlide(e.data.index);
@@ -290,10 +289,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(async () => {
             const dbIndex = await getFile('currentIndex');
             if (dbIndex !== undefined && dbIndex !== lastIndex) {
-                console.log("Sync recovered via DB check");
+                console.log("Resyncing from DB...");
                 renderLocalSlide(dbIndex);
             }
-        }, 2000);
+        }, 1000);
 
         function initRemoteVoice() {
             const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -314,8 +313,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             try { recognition.start(); } catch(e){}
         }
-
-        renderLocalSlide(0);
 
         overlay.addEventListener('click', () => {
             document.documentElement.requestFullscreen().catch(console.log);
